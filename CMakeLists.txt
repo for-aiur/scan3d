@@ -2,8 +2,8 @@ project(scan3d)
 cmake_minimum_required(VERSION 2.8)
 aux_source_directory(. SRC_LIST)
 include_directories( /usr/local/include )
+include_directories( . )
 link_directories( /usr/local/lib )
-target_link_libraries( opencv_core )
-add_library(scan3d STATIC camera.cpp dummy_camera.cpp)
-
-
+find_package(OpenCV REQUIRED core highgui)
+add_library(scan3d STATIC camera.cpp dummy_camera.cpp calibration_manager.cpp)
+target_link_libraries( scan3d opencv_core opencv_highgui opencv_flann)

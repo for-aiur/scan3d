@@ -1,5 +1,6 @@
 #include "dummy_camera.h"
 #include <iostream>
+#include <string>
 
 DummyCamera::DummyCamera()
 {
@@ -8,7 +9,6 @@ DummyCamera::DummyCamera()
 
 DummyCamera::~DummyCamera()
 {
-
 }
 
 bool DummyCamera::Open()
@@ -27,11 +27,11 @@ bool DummyCamera::GetFrame(cv::Mat& image)
 {
     if(!image.size().width || !image.size().height)
     {
-        std::cout << "Image has not allocated properly\n";
+        std::cout << "Image is not allocated properly\n";
         return false;
     }
 
-    image.setTo(cv::Scalar(255));
+    m_dummyImage.copyTo(image);
 
     return true;
 }
@@ -46,3 +46,22 @@ bool DummyCamera::Wait()
     return true;
 }
 
+void DummyCamera::SetDummyImage(const char* path)
+{
+    m_dummyImage = cv::imread(path);
+}
+
+unsigned int DummyCamera::GetWidth()
+{
+    return m_dummyImage.cols;
+}
+
+unsigned int DummyCamera::GetHeight()
+{
+    return m_dummyImage.rows;
+}
+
+unsigned char DummyCamera::GetBitDepth()
+{
+    return m_dummyImage.step[1]*8;
+}
