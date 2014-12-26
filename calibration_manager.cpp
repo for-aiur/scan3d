@@ -1,10 +1,14 @@
 #include "calibration_manager.h"
 #include <boost/lexical_cast.hpp>
+#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/math/special_functions/round.hpp>
 
 #include <opencv2/flann/miniflann.hpp>
+#include <opencv2/calib3d/calib3d.hpp>
+
+#include <fstream>
 
 CalibrationManager::CalibrationManager()
 {
@@ -21,17 +25,73 @@ CalibrationManager::~CalibrationManager()
 
 bool CalibrationManager::StereoCalibrate()
 {
-    if(m_detectionResult[0].amount_id_markers < 6 || m_detectionResult[1].amount_id_markers < 6)
+    if(!IsReadyToGo())
         return false;
+
+    std::vector<std::vector<std::vector<cv::Point2f> > > ring_markers_image_wrapper;
+    ring_markers_image_wrapper.resize(2);
+    ring_markers_image_wrapper[0].resize(1);
+    ring_markers_image_wrapper[1].resize(1);
+
+    for(int cam_idx = 0; cam_idx < 2; cam_idx++)
+    {
+        //calculate initial guess for Ps
+        m_stereoResult.P[cam_idx] = DLT(m_detectionResult[cam_idx].id_markers_world[0], m_detectionResult[cam_idx].id_markers_image[0]);
+
+        //decompose Ps
+        cv::decomposeProjectionMatrix(m_stereoResult.P[cam_idx], m_stereoResult.K[cam_idx], m_stereoResult.rvecs[cam_idx][0], m_stereoResult.tvecs[cam_idx][0]);
+        m_stereoResult.K[cam_idx] = m_stereoResult.K[cam_idx] / m_stereoResult.K[cam_idx].at<float>(2,2);
+        m_stereoResult.K[cam_idx].at<float>(0,1) = 0.0;
+        m_stereoResult.K[cam_idx].at<float>(1,0) = 0.0;
+
+        cv::Mat dummy;
+        if(!MatchMarkers(m_calibDescription, m_stereoResult.P[cam_idx], m_detectionResult[cam_idx], cam_idx, dummy))
+            return false;
+
+        //Tum noktalari buraya dose, bu Levenberg-Marquard kullaniyor guya
+        m_stereoResult.RMS[cam_idx] = cv::calibrateCamera(
+                                        m_detectionResult[cam_idx].ring_markers_world,
+                                        m_detectionResult[cam_idx].ring_markers_image,
+                                        m_detectionResult[cam_idx].img_size,
+                                        m_stereoResult.K[cam_idx],
+                                        m_stereoResult.D[cam_idx],
+                                        m_stereoResult.rvecs[cam_idx],
+                                        m_stereoResult.tvecs[cam_idx],
+                                        CV_CALIB_USE_INTRINSIC_GUESS); //| CV_CALIB_FIX_K1|CV_CALIB_FIX_K2|CV_CALIB_FIX_K3|CV_CALIB_FIX_K4|CV_CALIB_FIX_K5);
+
+        cv::projectPoints(m_calibDescription.calib_points,
+                          m_stereoResult.rvecs[cam_idx][0],
+                          m_stereoResult.tvecs[cam_idx][0],
+                          m_stereoResult.K[cam_idx],
+                          m_stereoResult.D[cam_idx],
+                          ring_markers_image_wrapper[cam_idx][0]);
+    }
+
+    //stereo calibration
+    std::vector<std::vector<cv::Point3f> > calib_points_wrapper;
+    calib_points_wrapper.push_back(m_calibDescription.calib_points);
+
+    m_stereoResult.stereoRMS = cv::stereoCalibrate(calib_points_wrapper,
+                                     ring_markers_image_wrapper[0],
+                                     ring_markers_image_wrapper[1],
+                                     m_stereoResult.K[0],
+                                     m_stereoResult.D[0],
+                                     m_stereoResult.K[1],
+                                     m_stereoResult.D[1],
+                                     m_detectionResult[0].img_size,
+                                     m_stereoResult.R,
+                                     m_stereoResult.T,
+                                     m_stereoResult.E,
+                                     m_stereoResult.F,
+                                     cv::TermCriteria(CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 50, 1e-5),
+                                     CV_CALIB_USE_INTRINSIC_GUESS );
     return true;
 }
 
 bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)
 {
     m_detectionResult[idxCam].amount_id_markers = 0;
-    m_detectionResult[idxCam].id_markers_world.resize(1);
-    m_detectionResult[idxCam].id_markers_image.resize(1);
-    m_detectionResult[idxCam].all_markers_image.resize(1);
+    m_detectionResult[idxCam].img_size = cv::Size(camImg.cols, camImg.rows);
 
     std::map<int, int> id_markers_index;
     std::vector<cv::Point3f> id_markers_world;
@@ -78,17 +138,16 @@ bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)
 
         cv::Scalar color = cv::Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
         // contour
-        cv::drawContours( camImg, contours, i, cv::Scalar(255,255,0), 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point() );
+        //cv::drawContours( camImg, contours, i, cv::Scalar(255,255,0), 1, 8, std::vector<cv::Vec4i>(), 0, cv::Point() );
         // ellipse
-        //cv::ellipse( camImg, minEllipse[i], color, 2, 8 );
+
         // rotated rectangle
         cv::Point2f rect_points[4]; minRect[i].points( rect_points );
         //for( int j = 0; j < 4; j++ )
-          //  cv::line( camImg, rect_points[j], rect_points[(j+1)%4], color, 1, 8 );
+          //cv::line( camImg, rect_points[j], rect_points[(j+1)%4], color, 1, 8 );
 
         //detected_img_points.push_back(minEllipse[i].center);
         //m_detectionResult[idxCam].all_markers_image[0].push_back(minEllipse[i].center);
-        all_markers_image.push_back(minEllipse[i].center);
 
         cv::Point2f p = cv::Point2f(minEllipse[i].size.width/2-m_calibParams[idxCam].id_marker_position_offset);
         cv::Point2f image_coord = minEllipse[i].center + p;
@@ -115,6 +174,14 @@ bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)
             m_detectionResult[idxCam].amount_id_markers++;
             id_markers_index[std::ceil(tooth_counter/2.0)] = i;
             cv::circle( camImg, minEllipse[i].center, 20,cv::Scalar(255,0,0), 5);
+            std::ostringstream oss;
+            oss << std::ceil(tooth_counter/2.0);
+            cv::putText(camImg, oss.str(), minEllipse[i].center-cv::Point2f(15,0), cv::FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(255, 255, 0), 3);
+        }
+        else
+        {
+            cv::ellipse( camImg, minEllipse[i], cv::Scalar(0,255,255), 2, 8 );
+            all_markers_image.push_back(minEllipse[i].center);
         }
     }
 
@@ -134,11 +201,8 @@ bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)
 
 bool CalibrationManager::MatchMarkers(const CalibrationDescription& desc, const cv::Mat& P, DetectionResult& detectionResult, int idxCam, cv::Mat& camImg)
 {
-    //detectionResult.ring_markers_world.resize(1);
-    //detectionResult.ring_markers_image.resize(1);
-
-    //std::vector<cv::Point3f> ring_markers_world;
-    //std::vector<cv::Point2f> ring_markers_image;
+    std::vector<cv::Point3f> ring_markers_world;
+    std::vector<cv::Point2f> ring_markers_image;
 
     cv::flann::KDTreeIndexParams indexParams;
     cv::flann::Index kdtree(cv::Mat(detectionResult.all_markers_image[0]).reshape(1), indexParams);
@@ -170,18 +234,20 @@ bool CalibrationManager::MatchMarkers(const CalibrationDescription& desc, const 
             continue;
 
         //item found
-        //detectionResult.ring_markers_image[0].push_back(detectionResult.all_markers_image[0][indices[0]]);
-        //detectionResult.ring_markers_world[0].push_back(desc.calib_points[i]);
-
-        //imgPts[cam_idx][0].push_back(detected_img_points[indices[0]]);
-        //objPts[cam_idx][0].push_back(calib_points[i]);
+        ring_markers_world.push_back(desc.calib_points[i]);
+        ring_markers_image.push_back(detectionResult.all_markers_image[0][indices[0]]);
     }
+
+    m_detectionResult[idxCam].ring_markers_world[0].swap(ring_markers_world);
+    m_detectionResult[idxCam].ring_markers_image[0].swap(ring_markers_image);
 
     return true;
 }
 
 bool CalibrationManager::ReadCalibrationDescription()
 {
+    //todo: add if file exist condition, this implementation is error prone
+
     m_calibDescription.amount_id_markers = 0;
     boost::property_tree::ptree pt;
     boost::property_tree::ini_parser::read_ini("calib.ini", pt);
@@ -293,7 +359,7 @@ cv::Mat CalibrationManager::Calculate3DConditioning(std::vector<cv::Point3f> in)
 
 cv::Mat CalibrationManager::DLT(std::vector<cv::Point3f>& ptsObject, std::vector<cv::Point2f>& ptsImage)
 {
-    cv::Mat P = cv::Mat::zeros(3,4,CV_32FC1);
+    cv::Mat P = cv::Mat::zeros(3,4,CV_32F);
 
     if(!ptsObject.size() || !ptsImage.size())
         return P;
@@ -390,10 +456,30 @@ cv::Mat CalibrationManager::DLT(std::vector<cv::Point3f>& ptsObject, std::vector
     return P;
 }
 
+bool CalibrationManager::IsReadyToGo()
+{
+    if(m_detectionResult[0].amount_id_markers < 6 || m_detectionResult[1].amount_id_markers < 6 )
+        return false;
 
+    if(m_detectionResult[0].ring_markers_world.size() != m_detectionResult[0].ring_markers_image.size())
+        return false;
 
+    if(m_detectionResult[1].ring_markers_world.size() != m_detectionResult[1].ring_markers_image.size())
+        return false;
 
+    return true;
+}
 
+DetectionResult::DetectionResult()
+{
+    id_markers_world.resize(1);
+    id_markers_image.resize(1);
+    ring_markers_world.resize(1);
+    ring_markers_image.resize(1);
+    all_markers_image.resize(1);
+}
 
-
-
+CalibrationResult& CalibrationManager::GetCalibrationResult()
+{
+    return m_stereoResult;
+}
