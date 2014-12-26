@@ -19,7 +19,7 @@ CalibrationResult::CalibrationResult()
     stereoRMS = 0.0;
 }
 
-bool CalibrationResult::SaveIni(const char* filename)
+bool CalibrationResult::SaveIni(const char* filename)const
 {
     //Save K[0], K[1], D[0], D[1], R, T
 

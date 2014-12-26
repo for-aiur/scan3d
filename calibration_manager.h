@@ -6,29 +6,34 @@
 #define M_PI 3.14159265359
 
 struct CalibrationParameters{
-    unsigned char binary_threshold = 30;
-    int kernel_size = 9;
-    int id_marker_position_offset = 3;
-    int radial_step_amount = 72;
-    int marker_search_radius = 500;
+    CalibrationParameters();
+
+    unsigned char binary_threshold;
+    int kernel_size;
+    int id_marker_position_offset;
+    int radial_step_amount;
+    int marker_search_radius;
 };
 
 struct DetectionResult{
     DetectionResult();
 
-    int amount_points = 0;
-    int amount_id_markers = 0;
+    int amount_points;
+    int amount_id_markers;
     std::vector< std::vector<cv::Point3f> > id_markers_world;
     std::vector< std::vector<cv::Point2f> > id_markers_image;
     std::vector< std::vector<cv::Point3f> > ring_markers_world;
     std::vector< std::vector<cv::Point2f> > ring_markers_image;
     std::vector< std::vector<cv::Point2f> > all_markers_image;
-    cv::Size img_size = cv::Size(0,0);
+    cv::Size img_size;
 };
 
 struct CalibrationDescription{
-    int amount_points = 0;
-    int amount_id_markers = 0;
+    CalibrationDescription();
+    void ReadFromIni(const char* filename);
+
+    int amount_points;
+    int amount_id_markers;
     std::vector<cv::Point3f> calib_points;
     std::map<int, cv::Point3f> id_markers_pos;
 };
@@ -39,28 +44,29 @@ public:
     ~CalibrationManager();
 
     //Detect Id Markers in camera image
-    bool DetectMarkers(cv::Mat& camImg, int idxCam);
+    bool DetectMarkers(cv::Mat& camImg, const int idxCam);
 
     //Find corresponding markers in image using approximate P
-    bool MatchMarkers(const CalibrationDescription& desc, const cv::Mat& P, DetectionResult& detectionResult, int idxCam, cv::Mat& camImg);
+    bool MatchMarkers(const CalibrationDescription& desc, const cv::Mat& P, DetectionResult& detectionResult, const int idxCam, cv::Mat& camImg);
 
     //Whether enough markers are detected to run stereo calibration or not
-    bool IsReadyToGo();
+    bool IsReadyToGo()const;
 
     bool StereoCalibrate();
 
     //Returns projection matrixusing real-image point correspondences
-    cv::Mat DLT(std::vector<cv::Point3f>& ptsObject, std::vector<cv::Point2f>& ptsImage);
+    cv::Mat DLT(const std::vector<cv::Point3f>& ptsObject, const std::vector<cv::Point2f>& ptsImage)const;
 
-    DetectionResult&        GetDetectionResult(int idxCam);
-    CalibrationParameters&  GetCalibrationParameters(int idxCam);
+    DetectionResult&        GetDetectionResult(const int idxCam);
+    CalibrationParameters&  GetCalibrationParameters(const int idxCam);
     CalibrationDescription& GetCalibrationDescription();
     CalibrationResult&      GetCalibrationResult();
+
     CalibrationManager(const CalibrationManager& copy);
+    CalibrationManager& operator=(const CalibrationManager& rhs);
 private:
-    bool ReadCalibrationDescription();
-    cv::Mat Calculate2DConditioning(std::vector<cv::Point2f> in);
-    cv::Mat Calculate3DConditioning(std::vector<cv::Point3f> in);
+    cv::Mat Calculate2DConditioning(const std::vector<cv::Point2f> in)const;
+    cv::Mat Calculate3DConditioning(const std::vector<cv::Point3f> in)const;
 
     std::vector<CalibrationParameters> m_calibParams;
     CalibrationDescription m_calibDescription;

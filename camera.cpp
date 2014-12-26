@@ -1,9 +1,9 @@
 #include "camera.h"
 
-Camera::Camera()
+ICamera::ICamera()
 {
 }
   
-Camera::~Camera()
+ICamera::~ICamera()
 {
 }

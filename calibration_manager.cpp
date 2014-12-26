@@ -15,7 +15,7 @@ CalibrationManager::CalibrationManager()
     m_calibParams.resize(2);
     m_detectionResult.resize(2);
 
-    ReadCalibrationDescription();
+    m_calibDescription.ReadFromIni("calib.ini");
 }
 
 CalibrationManager::~CalibrationManager()
@@ -244,47 +244,6 @@ bool CalibrationManager::MatchMarkers(const CalibrationDescription& desc, const 
     return true;
 }
 
-bool CalibrationManager::ReadCalibrationDescription()
-{
-    //todo: add if file exist condition, this implementation is error prone
-
-    m_calibDescription.amount_id_markers = 0;
-    boost::property_tree::ptree pt;
-    boost::property_tree::ini_parser::read_ini("calib.ini", pt);
-
-    int amount_points = pt.get<int>("CalibInfo.MarkCount");
-    m_calibDescription.amount_points = amount_points;
-    char buffer[32];
-    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
-    boost::char_separator<char> sep(" ");
-
-    for(int i = 0; i < amount_points; i++)
-    {
-        sprintf(buffer, "Marks.Mark_%.3i", i);
-        std::string line = pt.get<std::string>(buffer);
-        tokenizer tokens(line, sep);
-        cv::Point3f calib_p;
-        tokenizer::iterator tok_iter = tokens.begin();
-        calib_p.x = ::atof(std::string(*tok_iter++).c_str());
-        calib_p.y = ::atof(std::string(*tok_iter++).c_str());
-        calib_p.z = ::atof(std::string(*tok_iter).c_str());
-
-        sprintf(buffer, "Marks.Mark_%.3i_ID", i);
-        boost::optional<int> id = pt.get_optional<int>(buffer);
-
-        if(id.is_initialized())
-        {
-            m_calibDescription.amount_id_markers++;
-            m_calibDescription.id_markers_pos[id.get()] = calib_p;
-            continue;
-        }
-
-        m_calibDescription.calib_points.push_back(calib_p);
-    }
-
-    return true;
-}
-
 DetectionResult& CalibrationManager::GetDetectionResult(int idxCam)
 {
     return m_detectionResult[idxCam];
@@ -300,7 +259,7 @@ CalibrationDescription& CalibrationManager::GetCalibrationDescription()
     return m_calibDescription;
 }
 
-cv::Mat CalibrationManager::Calculate2DConditioning(std::vector<cv::Point2f> in)
+cv::Mat CalibrationManager::Calculate2DConditioning(std::vector<cv::Point2f> in)const
 {
     //translation x ve y lerin ortalamasi t
     cv::Scalar t = cv::mean(in);
@@ -327,7 +286,7 @@ cv::Mat CalibrationManager::Calculate2DConditioning(std::vector<cv::Point2f> in)
     return T;
 }
 
-cv::Mat CalibrationManager::Calculate3DConditioning(std::vector<cv::Point3f> in)
+cv::Mat CalibrationManager::Calculate3DConditioning(std::vector<cv::Point3f> in)const
 {
     //translation x ve y lerin ortalamasi t
     cv::Scalar t = cv::mean(in);
@@ -357,7 +316,7 @@ cv::Mat CalibrationManager::Calculate3DConditioning(std::vector<cv::Point3f> in)
     return T;
 }
 
-cv::Mat CalibrationManager::DLT(std::vector<cv::Point3f>& ptsObject, std::vector<cv::Point2f>& ptsImage)
+cv::Mat CalibrationManager::DLT(const std::vector<cv::Point3f>& ptsObject, const std::vector<cv::Point2f>& ptsImage)const
 {
     cv::Mat P = cv::Mat::zeros(3,4,CV_32F);
 
@@ -456,7 +415,7 @@ cv::Mat CalibrationManager::DLT(std::vector<cv::Point3f>& ptsObject, std::vector
     return P;
 }
 
-bool CalibrationManager::IsReadyToGo()
+bool CalibrationManager::IsReadyToGo() const
 {
     if(m_detectionResult[0].amount_id_markers < 6 || m_detectionResult[1].amount_id_markers < 6 )
         return false;
@@ -472,6 +431,9 @@ bool CalibrationManager::IsReadyToGo()
 
 DetectionResult::DetectionResult()
 {
+    amount_points = 0;
+    amount_id_markers = 0;
+    img_size = cv::Size(0,0);
     id_markers_world.resize(1);
     id_markers_image.resize(1);
     ring_markers_world.resize(1);
@@ -482,4 +444,57 @@ DetectionResult::DetectionResult()
 CalibrationResult& CalibrationManager::GetCalibrationResult()
 {
     return m_stereoResult;
+}
+
+CalibrationDescription::CalibrationDescription(){
+    amount_points = 0;
+    amount_id_markers = 0;
+}
+
+void CalibrationDescription::ReadFromIni(const char* filename)
+{
+    //todo: add if file exist condition, this implementation is error prone
+
+    amount_id_markers = 0;
+    boost::property_tree::ptree pt;
+    boost::property_tree::ini_parser::read_ini("calib.ini", pt);
+
+    int amount_points = pt.get<int>("CalibInfo.MarkCount");
+    (*this).amount_points = amount_points;
+    char buffer[32];
+    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+    boost::char_separator<char> sep(" ");
+
+    for(int i = 0; i < amount_points; i++)
+    {
+        sprintf(buffer, "Marks.Mark_%.3i", i);
+        std::string line = pt.get<std::string>(buffer);
+        tokenizer tokens(line, sep);
+        cv::Point3f calib_p;
+        tokenizer::iterator tok_iter = tokens.begin();
+        calib_p.x = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.y = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.z = ::atof(std::string(*tok_iter).c_str());
+
+        sprintf(buffer, "Marks.Mark_%.3i_ID", i);
+        boost::optional<int> id = pt.get_optional<int>(buffer);
+
+        if(id.is_initialized())
+        {
+            amount_id_markers++;
+            id_markers_pos[id.get()] = calib_p;
+            continue;
+        }
+
+        calib_points.push_back(calib_p);
+    }
+}
+
+CalibrationParameters::CalibrationParameters()
+{
+    binary_threshold = 30;
+    kernel_size = 9;
+    id_marker_position_offset = 3;
+    radial_step_amount = 72;
+    marker_search_radius = 500;
 }

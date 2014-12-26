@@ -3,7 +3,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-class DummyCamera : public Camera
+class DummyCamera : public ICamera
 {
 public:
     DummyCamera();

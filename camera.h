@@ -1,9 +1,9 @@
 #include <opencv2/core/core.hpp>
 
-class Camera{
+class ICamera{
 public:
-    Camera();
-    virtual ~Camera();
+    ICamera();
+    virtual ~ICamera();
 
     virtual bool Open()=0;
     virtual bool Close()=0;
@@ -14,6 +14,7 @@ public:
     virtual unsigned int GetHeight()=0;
     virtual unsigned char GetBitDepth()=0;
 
-    //unimplemented copy constructor
-    Camera(const Camera& copy);
+    //unimplemented copy constructor and operator=
+    ICamera(const ICamera& copy);
+    ICamera& operator=(const ICamera& copy);
 };

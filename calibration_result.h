@@ -2,8 +2,12 @@
 #include <opencv2/core/core.hpp>
 
 struct CalibrationResult{
+
     CalibrationResult();
-    bool SaveIni(const char* filename);
+    CalibrationResult(const CalibrationResult& copy);
+    CalibrationResult& operator=(const CalibrationResult& rhs);
+
+    bool SaveIni(const char* filename)const;
     bool LoadIni(const char* filename);
 
     double RMS[2];
