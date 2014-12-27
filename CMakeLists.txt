@@ -5,5 +5,15 @@ include_directories( /usr/local/include )
 include_directories( . )
 link_directories( /usr/local/lib )
 find_package(OpenCV REQUIRED core highgui calib3d flann)
-add_library(scan3d STATIC camera.cpp dummy_camera.cpp calibration_manager.cpp calibration_result.cpp)
+find_package(Boost REQUIRED)
+add_library(scan3d STATIC camera.cpp
+                        dummy_camera.cpp
+                        calibration_manager.cpp
+                        calibration_result.cpp
+                        scan_config.cpp
+                        scan_manager.cpp
+                        graycode.cpp
+                        multiview.cpp
+                        scan_calculator.cpp
+                        )
 target_link_libraries( scan3d opencv_core opencv_highgui opencv_flann opencv_calib3d)

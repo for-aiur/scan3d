@@ -1,3 +1,6 @@
+#ifndef CALIBRATION_RESULT_H
+#define CALIBRATION_RESULT_H
+
 #include <vector>
 #include <opencv2/core/core.hpp>
 
@@ -22,3 +25,5 @@ struct CalibrationResult{
     std::vector<cv::Mat> rvecs[2];
     std::vector<cv::Mat> tvecs[2];
 };
+
+#endif /* CALIBRATION_RESULT_H */

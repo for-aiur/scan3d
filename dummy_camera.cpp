@@ -39,6 +39,11 @@ bool DummyCamera::SnapSynchronous()
     return true;
 }
 
+bool DummyCamera::SnapAsynchronous()
+{
+    return true;
+}
+
 bool DummyCamera::Wait()
 {
     return true;
@@ -62,4 +67,14 @@ unsigned int DummyCamera::GetHeight()
 unsigned char DummyCamera::GetBitDepth()
 {
     return m_dummyImage.step[1]*8;
+}
+
+double DummyCamera::GetMinShutter()
+{
+    return 1.0;
+}
+
+double DummyCamera::GetMaxShutter()
+{
+    return 100.0;
 }

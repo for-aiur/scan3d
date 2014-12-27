@@ -8,7 +8,7 @@
 struct CalibrationParameters{
     CalibrationParameters();
 
-    unsigned char binary_threshold;
+    int binary_threshold;
     int kernel_size;
     int id_marker_position_offset;
     int radial_step_amount;
@@ -46,7 +46,7 @@ public:
     //Detect Id Markers in camera image
     bool DetectMarkers(cv::Mat& camImg, const int idxCam);
 
-    //Find corresponding markers in image using approximate P
+    //Match markers in calibration description and detected ones
     bool MatchMarkers(const CalibrationDescription& desc, const cv::Mat& P, DetectionResult& detectionResult, const int idxCam, cv::Mat& camImg);
 
     //Whether enough markers are detected to run stereo calibration or not
