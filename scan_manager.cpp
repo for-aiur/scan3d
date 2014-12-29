@@ -36,7 +36,7 @@ void ScanManager::AddCamera(ICamera* cam2add, eCameraModel model)
 }
 */
 
-void ScanManager::StartScan()
+bool ScanManager::StartScan()
 {
     std::vector<std::vector<cv::Mat> > sequence;
     sequence.resize(MAX_CAM_COUNT);
@@ -52,10 +52,13 @@ void ScanManager::StartScan()
     c_result.LoadIni("calib_result.ini");
 
     //feed and run scan calculator
-    m_scanCalculator.StartCalculation(sequence, c_result);
+    return m_scanCalculator.StartCalculation(sequence, c_result);
+}
 
-    //get-keep the result
-
+std::vector<cv::Mat>* ScanManager::GetCloud()
+{
+    std::vector<cv::Mat>* m = m_scanCalculator.GetCloud();
+    return m;
 }
 
 void ScanManager::LoadDummyScan()

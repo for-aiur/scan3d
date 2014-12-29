@@ -12,11 +12,15 @@ public:
     ~ScanManager();
 
     //void AddCamera(ICamera* cam2add, eCameraModel model);
-    void StartScan();
+    bool StartScan();
+
+    std::vector<cv::Mat>* GetCloud();
 
 private:
     //std::vector<ICamera*> m_cams;
     ScanCalculator m_scanCalculator;
+
+    std::vector<cv::Mat>* m_ptCloud;
 
     //Dummy scan data
     //Should be removed in real implementation

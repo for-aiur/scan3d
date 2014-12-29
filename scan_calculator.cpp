@@ -2,6 +2,7 @@
 #include <graycode.h>
 #include <multiview.h>
 #include <iostream>
+#include <fstream>
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/core.hpp>
@@ -113,20 +114,71 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
 
     std::vector<cv::Point2f> p;
     std::vector<cv::Point3f> lines;
-    for(int r = 1; r < size.height-5; r++)
+    for(int r = 1; r < size.height-5; r++)//for(int r = 1; r < size.height-5; r++)
     {
-        for(int c = 1; c < size.width-5; c++)
+        for(int c = 500; c < 510; c++)//for(int c = 1; c < size.width-5; c++)
         {
             p.push_back(cv::Point2f(c, r));
         }
     }
     cv::computeCorrespondEpilines(p, 1, c_result.F, lines);
+    std::cout << "size of lines: "<< lines.size() << std::endl;
 
-    //find correspondence
+    //3d
+    std::vector<cv::Mat> ptCloud;
+    m_ptCloud.swap(ptCloud);
 
-    //triangulate
+    cv::Mat cam0pnts(1,1,CV_64FC2);
+    cv::Mat cam1pnts(1,1,CV_64FC2);
+
+    //find correspondence and triangulate
+    T2DLINED l;
+    int counter = 0;
+    for(int r = 1; r < size.height-5; r++)
+    {
+        std::cout << r << std::endl;
+        for(int c = 500; c < 510; c++)//for(int c = 1; c < size.width-5; c++)
+        {
+            cv::Mat pnts3D = cv::Mat(1,1,CV_64FC4);
+            //boost::chrono::thread_clock::time_point start = boost::chrono::thread_clock::now();
+
+            l.p0.x = 0;//std::max(0,(int)(p[counter].x-250));
+            l.p0.y = -(lines[counter].z/lines[counter].y);
+            double m = -(lines[counter].x / lines[counter].y);
+            double angle = atan(m);
+            l.vr.x = 1250*cos(angle);
+            l.vr.y = 1250*sin(angle);
+
+            double _U=0, _V=0;
+            double srcW = BLInterpolate(p[counter].x, p[counter].y, absL);
+            counter++;
+
+            if(!m_stereoView.DetectPtOnEplipolarLine(l, srcW, absR, _U, _V, 2))
+            {
+                continue;
+            }
+
+            cam0pnts.at<cv::Point2d>(0) = p[counter-1];
+            cam1pnts.at<cv::Point2d>(0) = cv::Point2d(_U, _V);
+
+            cv::triangulatePoints(PP1,PP2,cam0pnts,cam1pnts,pnts3D);
+            pnts3D = pnts3D / pnts3D.at<double>(3);
+            m_ptCloud.push_back(pnts3D);
+
+            //std::cout << pnts3D.at<double>(0) << " " << pnts3D.at<double>(1) << " " << pnts3D.at<double>(2) << std::endl;
+            //std::cout << ptCloud[ptCloud.size()-1] << std::endl;
+
+            //boost::chrono::thread_clock::time_point stop = boost::chrono::thread_clock::now();
+            //file << "duration: " << boost::chrono::duration_cast<boost::chrono::milliseconds>(stop - start).count() << " ms\n";
+        }
+    }
 
     return true;
+}
+
+std::vector<cv::Mat>* ScanCalculator::GetCloud()
+{
+    return& m_ptCloud;
 }
 
 void ScanCalculator::CalculateAbsPhase(std::vector<std::vector<cv::Mat> >& sequence)
@@ -140,8 +192,8 @@ void ScanCalculator::CalculateAbsPhase(std::vector<std::vector<cv::Mat> >& seque
     cv::imwrite("absL.tiff", absPhaseL);
     CalculateGP(absPhaseR, sequence[1], 1, 16, 17);
     cv::imwrite("absR.tiff", absPhaseR);
-    cv::Mat absL(height, width, CV_16S);
-    cv::Mat absR(height, width, CV_16S);
+    absL = cv::Mat(height, width, CV_16S);
+    absR = cv::Mat(height, width, CV_16S);
     LoadAbsolutePhase("absL.tiff", absL);
     LoadAbsolutePhase("absR.tiff", absR);
 }
