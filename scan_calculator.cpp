@@ -116,7 +116,7 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
     std::vector<cv::Point3f> lines;
     for(int r = 1; r < size.height-5; r++)//for(int r = 1; r < size.height-5; r++)
     {
-        for(int c = 500; c < 510; c++)//for(int c = 1; c < size.width-5; c++)
+        for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
         {
             p.push_back(cv::Point2f(c, r));
         }
@@ -137,15 +137,15 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
     for(int r = 1; r < size.height-5; r++)
     {
         std::cout << r << std::endl;
-        for(int c = 500; c < 510; c++)//for(int c = 1; c < size.width-5; c++)
+        for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
         {
             cv::Mat pnts3D = cv::Mat(1,1,CV_64FC4);
             //boost::chrono::thread_clock::time_point start = boost::chrono::thread_clock::now();
 
-            l.p0.x = 0;//std::max(0,(int)(p[counter].x-250));
+            l.p0.x = 0;//std::max(0,(int)(p[counter].x-150));
             l.p0.y = -(lines[counter].z/lines[counter].y);
             double m = -(lines[counter].x / lines[counter].y);
-            double angle = atan(m);
+            double angle = atan(m);            
             l.vr.x = 1250*cos(angle);
             l.vr.y = 1250*sin(angle);
 

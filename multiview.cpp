@@ -2,7 +2,8 @@
 
 MultiView::MultiView()
 {
-
+    histogram.reserve(650);
+    pixPosition.reserve(650);
 }
 
 MultiView::~MultiView()
@@ -22,13 +23,8 @@ bool MultiView::DetectPtOnEplipolarLine( const T2DLINED &DstEpipolarLine,
         return false;
     }
 
-    std::vector<double> histogram;
-
-    T2DLINED detectPt_DstEpipolarLineLocal = DstEpipolarLine;
-    std::vector<cv::Point2d> pixPosition;
-
     // Histogram along the line
-    if( !GetIntensityByLine_16Bit( DstAbsPhase, DstEpipolarLine.p0, DstEpipolarLine.p0+DstEpipolarLine.vr, histogram, 0.5, DstCamIdx, pixPosition ) )
+    if( !GetIntensityByLine_16Bit( DstAbsPhase, DstEpipolarLine.p0, DstEpipolarLine.p0+DstEpipolarLine.vr, histogram, 0.5, pixPosition ) )
     {
         return false;
     }
@@ -108,7 +104,6 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
                                const cv::Point2d &p2,
                                std::vector<double> &Histogr,
                                double step,
-                               int DstCamIdx,
                                std::vector<cv::Point2d> &PixPosition
                                )
 {
@@ -157,19 +152,27 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
     PixPosition.resize( intensityByLine_nLineLength );	// capacity wurde bereits im Voraus allockiert
     Histogr.resize( intensityByLine_nLineLength );
 
+    cv::Point2f increase;
+    cv::Point2f intensityByLine_pixPos;
+    int intensityByLine_u0, intensityByLine_u1, intensityByLine_v0, intensityByLine_v1;
+    double intensityByLine_u, intensityByLine_v;
+    const short* intensityByLine_pPixel;
+    double intensityByLine_ph0, intensityByLine_ph1, intensityByLine_ph2, intensityByLine_ph3;
+    double weight_tl, weight_tr, weight_bl, weight_br;
+
     // for each point of the orthogonal line
     for( int intensityByLine_i=0; intensityByLine_i<intensityByLine_nLineLength; intensityByLine_i++ )
     {
-        cv::Point2f increase = intensityByLine_dir*static_cast<float>(intensityByLine_i);
-        cv::Point2f intensityByLine_pixPos = intensityByLine_p1_local + increase;
+        increase = intensityByLine_dir*static_cast<float>(intensityByLine_i);
+        intensityByLine_pixPos = intensityByLine_p1_local + increase;
 
         // Bilineare Interpolation
-        int intensityByLine_u0 = static_cast<long>(intensityByLine_pixPos.x);
-        int intensityByLine_u1 = intensityByLine_u0 + 1;
-        int intensityByLine_v0 = static_cast<long>(intensityByLine_pixPos.y);
-        int intensityByLine_v1 = intensityByLine_v0 + 1;
-        double intensityByLine_u  = intensityByLine_pixPos.x - intensityByLine_u0;
-        double intensityByLine_v  = intensityByLine_pixPos.y - intensityByLine_v0;
+        intensityByLine_u0 = static_cast<long>(intensityByLine_pixPos.x);
+        intensityByLine_u1 = intensityByLine_u0 + 1;
+        intensityByLine_v0 = static_cast<long>(intensityByLine_pixPos.y);
+        intensityByLine_v1 = intensityByLine_v0 + 1;
+        intensityByLine_u  = intensityByLine_pixPos.x - intensityByLine_u0;
+        intensityByLine_v  = intensityByLine_pixPos.y - intensityByLine_v0;
 
         // check up whether the image coordinate exceeds the image border
         // the bilinear interpolation uses the pixels m_IntensityByLine_u,m_IntensityByLine_v and m_IntensityByLine_u+1,m_IntensityByLine_v+1
@@ -181,13 +184,13 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
         }
         else
         {
-            const short* intensityByLine_pPixel = (const short*)( Img.row(intensityByLine_v0 - 1).data );
-            double intensityByLine_ph0 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
-            double intensityByLine_ph2 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
+            intensityByLine_pPixel = (const short*)( Img.row(intensityByLine_v0 - 1).data );
+            intensityByLine_ph0 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
+            intensityByLine_ph2 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
 
             intensityByLine_pPixel = (const short*)( Img.row(intensityByLine_v1 - 1).data );
-            double intensityByLine_ph1 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
-            double intensityByLine_ph3 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
+            intensityByLine_ph1 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
+            intensityByLine_ph3 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
 
             //qDebug() << m_IntensityByLine_ph0 << "-" << m_IntensityByLine_ph2 << "-" << m_IntensityByLine_ph1 << "-" << m_IntensityByLine_ph3;
 
@@ -199,10 +202,10 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
             {
                 //Histogr[intensityByLine_i] = BLInterpolation( intensityByLine_ph0, intensityByLine_ph1, intensityByLine_ph2, intensityByLine_ph3, intensityByLine_u, intensityByLine_v );
 
-                double weight_tl = (1.0 - intensityByLine_u) * (intensityByLine_v);
-                double weight_tr = (intensityByLine_u)       * (intensityByLine_v);
-                double weight_bl = (1.0 - intensityByLine_u) * (1.0-intensityByLine_v);
-                double weight_br = (intensityByLine_u)       * (1.0-intensityByLine_v);
+                weight_tl = (1.0 - intensityByLine_u) * (intensityByLine_v);
+                weight_tr = (intensityByLine_u)       * (intensityByLine_v);
+                weight_bl = (1.0 - intensityByLine_u) * (1.0-intensityByLine_v);
+                weight_br = (intensityByLine_u)       * (1.0-intensityByLine_v);
 
                 Histogr[intensityByLine_i] = (intensityByLine_ph0*weight_tl)+(intensityByLine_ph2*weight_tr)+(intensityByLine_ph1*weight_bl)+(intensityByLine_ph3*weight_br);
             }

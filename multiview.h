@@ -29,17 +29,13 @@ public:
                                    const cv::Point2d &p2,
                                    std::vector<double> &Histogr,
                                    double step,
-                                   int DstCamIdx,
                                    std::vector<cv::Point2d> &PixPosition
                                    );
 
 private:
-    double m_Calc3DPoint_U_SrcCam, m_Calc3DPoint_V_SrcCam;
-    std::vector<cv::Point2f> m_EpipolarLine_P;
-    std::vector<cv::Point3f> m_EpipolarLine_Pt;
-    cv::Point2f m_Calc3DPoint_DstEpipolarLine;
+    std::vector<double> histogram;
+    std::vector<cv::Point2d> pixPosition;
 
-private:
     MultiView(const MultiView& copy);
     MultiView& operator=(const MultiView& rhs);
 };
