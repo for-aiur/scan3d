@@ -15,7 +15,7 @@ CalibrationManager::CalibrationManager()
     m_calibParams.resize(2);
     m_detectionResult.resize(2);
 
-    m_calibDescription.ReadFromIni("calib.ini");
+    m_calibDescription.ReadFromIni("Calib.ini");
 }
 
 CalibrationManager::~CalibrationManager()

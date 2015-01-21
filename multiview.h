@@ -2,6 +2,7 @@
 #define MULTIVIEW_H
 #include <vector>
 #include <opencv2/core/core.hpp>
+#include <calibration_result.h>
 
 /// A 2D straight line with double precision
 struct T2DLINED
@@ -32,12 +33,18 @@ public:
                                    std::vector<cv::Point2d> &PixPosition
                                    );
 
+	bool Calc3DPoint(double U, double V, double W, double &X, double &Y, double &Z, TCALPAR& param);
+
+	TCALPAR& GetCalParam(int idx);
+
 private:
     std::vector<double> histogram;
     std::vector<cv::Point2d> pixPosition;
 
     MultiView(const MultiView& copy);
     MultiView& operator=(const MultiView& rhs);
+
+	TCALPAR calParam[2];
 };
 
 #endif /* MULTIVIEW_H */

@@ -1,4 +1,5 @@
 #include "multiview.h"
+#include <numeric.h>
 
 MultiView::MultiView()
 {
@@ -219,4 +220,46 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
     //cv::imshow("Test", src[1]);
     //cv::waitKey();
     return true;
+}
+
+bool MultiView::Calc3DPoint(double U, double V, double W, double &X, double &Y, double &Z, TCALPAR& param)
+{
+	if( !W )
+		return false;
+
+	double A[3][3];
+	double b[3];
+	double x[3];
+	
+	A[0][0] = param.a11-U*param.a41;
+	A[0][1] = param.a12-U*param.a42;
+	A[0][2] = param.a13-U*param.a43;
+
+	A[1][0] = param.a21-V*param.a41;
+	A[1][1] = param.a22-V*param.a42;
+	A[1][2] = param.a23-V*param.a43;
+
+	A[2][0] = param.b11-W*param.b41;
+	A[2][1] = param.b12-W*param.b42;
+	A[2][2] = param.b13-W*param.b43;
+
+	b[0] = U*param.a44-param.a14;
+	b[1] = V*param.a44-param.a24;
+	b[2] = W*param.b44-param.b14;
+
+	// Berechnung der Koordinaten durch lösen des LGS
+	if( !Solve3x3LGS(A, b, x, 1.0E-12) )
+		return false;
+
+	// umspeichern der Koordinaten
+	X = x[0];
+	Y = x[1];
+	Z = x[2];
+
+	return true;
+}
+
+TCALPAR& MultiView::GetCalParam(int idx)
+{
+	return calParam[idx];
 }

@@ -3,6 +3,8 @@
 #include <opencv2/core/core.hpp>
 #include <vector>
 
+#define M_PI 3.14159265359
+
 bool CalculateGP(cv::Mat& absPhase, std::vector<cv::Mat> &images, int startGray, int endGray, int startPhase);
 bool CalculateGrayCodeImg( cv::Mat& code_img, std::vector<cv::Mat>& images, long StartIndex, long EndIndex );
 void EvaluateAbsPhase(cv::Mat& AbsPhase, cv::Mat& Phase, cv::Mat& GCode);

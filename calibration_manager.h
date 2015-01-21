@@ -64,6 +64,7 @@ public:
 
     CalibrationManager(const CalibrationManager& copy);
     CalibrationManager& operator=(const CalibrationManager& rhs);
+
 private:
     cv::Mat Calculate2DConditioning(const std::vector<cv::Point2f> in)const;
     cv::Mat Calculate3DConditioning(const std::vector<cv::Point3f> in)const;
