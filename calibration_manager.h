@@ -57,7 +57,9 @@ public:
     //Returns projection matrixusing real-image point correspondences
     cv::Mat DLT(const std::vector<cv::Point3f>& ptsObject, const std::vector<cv::Point2f>& ptsImage)const;
 
-    DetectionResult&        GetDetectionResult(const int idxCam);
+	void WriteRawCal(const char* filename, std::vector<std::vector<cv::Mat> >& sequence);
+
+	DetectionResult& GetDetectionResult(const int idx_cam);
     CalibrationParameters&  GetCalibrationParameters(const int idxCam);
     CalibrationDescription& GetCalibrationDescription();
     CalibrationResult&      GetCalibrationResult();

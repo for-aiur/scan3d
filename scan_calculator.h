@@ -13,6 +13,8 @@ public:
     ~ScanCalculator();
     bool StartCalculation(std::vector<std::vector<cv::Mat> >& sequence, CalibrationResult& c_result);
 
+	void CalculateAbsPhase(std::vector<std::vector<cv::Mat> >& sequence);
+
     std::vector<cv::Mat>* GetCloud();
 
 private:
@@ -24,8 +26,6 @@ private:
     std::vector<cv::Mat> m_ptCloud;
 
     MultiView m_stereoView;
-
-    void CalculateAbsPhase(std::vector<std::vector<cv::Mat> >& sequence);
 
 private:
     ScanCalculator(const ScanCalculator& copy);

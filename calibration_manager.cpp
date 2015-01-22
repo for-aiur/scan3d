@@ -7,8 +7,10 @@
 
 #include <opencv2/flann/miniflann.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
+#include <scan_calculator.h>
 
 #include <fstream>
+#include <graycode.h>
 
 CalibrationManager::CalibrationManager()
 {
@@ -84,8 +86,32 @@ bool CalibrationManager::StereoCalibrate()
                                      m_stereoResult.E,
                                      m_stereoResult.F,
                                      cv::TermCriteria(CV_TERMCRIT_ITER+CV_TERMCRIT_EPS, 50, 1e-5),
-                                     CV_CALIB_USE_INTRINSIC_GUESS );
+                                     CV_CALIB_USE_INTRINSIC_GUESS );	
     return true;
+}
+
+void CalibrationManager::WriteRawCal(const char* filename, std::vector<std::vector<cv::Mat> >& sequence)
+{
+	int height = sequence[0][0].rows;
+	int width = sequence[0][0].cols;
+
+	ScanCalculator sc;
+	sc.CalculateAbsPhase(sequence);
+	cv::Mat absL = cv::Mat(height, width, CV_16S);
+	cv::Mat absR = cv::Mat(height, width, CV_16S);
+	LoadAbsolutePhase("absL.tiff", absL);
+	LoadAbsolutePhase("absR.tiff", absR);
+
+	for(int i = 0; i < m_detectionResult[0].ring_markers_image[0].size(); i++)
+	{
+		double imgX = m_detectionResult[0].ring_markers_image[0][i].x;
+		double imgY = m_detectionResult[0].ring_markers_image[0][i].y;
+		double wrdX = m_detectionResult[0].ring_markers_world[0][i].x;
+		double wrdY = m_detectionResult[0].ring_markers_world[0][i].y;
+		double wrdZ = m_detectionResult[0].ring_markers_world[0][i].z;
+		double srcW = BLInterpolate(imgX, imgY, absL);
+		int a = 100;
+	}
 }
 
 bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)
@@ -244,9 +270,9 @@ bool CalibrationManager::MatchMarkers(const CalibrationDescription& desc, const 
     return true;
 }
 
-DetectionResult& CalibrationManager::GetDetectionResult(int idxCam)
+DetectionResult& CalibrationManager::GetDetectionResult(const int idx_cam)
 {
-    return m_detectionResult[idxCam];
+    return m_detectionResult[idx_cam];
 }
 
 CalibrationParameters& CalibrationManager::GetCalibrationParameters(int idxCam)

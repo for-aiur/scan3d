@@ -39,8 +39,15 @@ ScanCalculator::~ScanCalculator()
 
 bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequence, CalibrationResult& c_result)
 {
+	int height = sequence[0][0].rows;
+	int width = sequence[0][0].cols;
     cv::Size size = cv::Size(sequence[0][0].cols, sequence[0][0].rows);
     CalculateAbsPhase(sequence);
+
+	absL = cv::Mat(height, width, CV_16S);
+    absR = cv::Mat(height, width, CV_16S);
+    LoadAbsolutePhase("absL.tiff", absL);
+    LoadAbsolutePhase("absR.tiff", absR);
 
     std::cout << "K1" << c_result.K[0] << std::endl;
     std::cout << "K2" << c_result.K[1] << std::endl;
@@ -187,13 +194,8 @@ void ScanCalculator::CalculateAbsPhase(std::vector<std::vector<cv::Mat> >& seque
     int width = sequence[0][0].cols;
     cv::Mat absPhaseL = cv::Mat::zeros( height, width, CV_16U );
     cv::Mat absPhaseR = cv::Mat::zeros( height, width, CV_16U );
-    cv::imwrite("absL.tiff", absPhaseL);
     CalculateGP(absPhaseL, sequence[0], 1, 16, 17);
     cv::imwrite("absL.tiff", absPhaseL);
     CalculateGP(absPhaseR, sequence[1], 1, 16, 17);
     cv::imwrite("absR.tiff", absPhaseR);
-    absL = cv::Mat(height, width, CV_16S);
-    absR = cv::Mat(height, width, CV_16S);
-    LoadAbsolutePhase("absL.tiff", absL);
-    LoadAbsolutePhase("absR.tiff", absR);
 }

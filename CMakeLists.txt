@@ -28,6 +28,8 @@ add_library(scan3d STATIC
                         multiview.cpp
                         scan_calculator.h
                         scan_calculator.cpp
+                        numeric.cpp
+                        numeric.h
                         )
 target_link_libraries( scan3d ${OpenCV_LIBS})
 add_executable(scan3d_test scan3d_test.cpp)
