@@ -1,6 +1,7 @@
 #include "graycode.h"
 #include <iostream>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <boost/math/special_functions/round.hpp>
 
 bool CalculateGP(cv::Mat& absPhase, std::vector<cv::Mat> &images, int startGray, int endGray, int startPhase)
@@ -50,8 +51,9 @@ bool CalculateGrayCodeImg( cv::Mat& code_img, std::vector<cv::Mat>& images, long
     {
         if( images[i].type() != CV_8UC1 )
         {
-            std::cout << "Wrong image type\n";
-            return false;
+			cv::cvtColor(images[i], images[i], CV_BGR2GRAY);
+            //std::cout << "Wrong image type\n";
+            //return false;
         }
     }
 

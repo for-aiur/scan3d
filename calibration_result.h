@@ -4,6 +4,8 @@
 #include <vector>
 #include <opencv2/core/core.hpp>
 
+#define M_PI 3.14159265359
+
 typedef struct tagTCALPOINT {
   double X;
   double Y;

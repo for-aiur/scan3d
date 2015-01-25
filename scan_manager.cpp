@@ -73,7 +73,8 @@ void ScanManager::LoadDummyScan()
     {
         for(int i = 0; i < 22; i++)
         {
-            sprintf(filename, "/home/yildirim/Dropbox/Vision/myOCV/images/hosteo1/imgs/Img_native_%.2i_%.2i.png",j+1,i);
+            //sprintf(filename, "/home/yildirim/Dropbox/Vision/myOCV/images/hosteo1/imgs/Img_native_%.2i_%.2i.png",j+1,i);
+			sprintf(filename, "C:/Users/yildirim/Dropbox/Vision/myOCV/images/hosteo1/imgs/Img_native_%.2i_%.2i.png",j+1,i);
             m_dummyScanRepo[j].push_back(cv::imread(filename, CV_8UC1));
             std::cout << filename << std::endl;
         }

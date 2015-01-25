@@ -16,11 +16,13 @@ public:
     MultiView();
     ~MultiView();
 
-    bool DetectPtOnEplipolarLine( const T2DLINED &DstEpipolarLine,
+    bool DetectPtOnEplipolarLine( T2DLINED &DstEpipolarLine,
                                   const double W, cv::Mat& DstAbsPhase,
+								  const double U_src, const double V_src,
                                   double &U_DstCam,
                                   double &V_DstCam,
-                                  const int DstCamIdx
+                                  const int DstCamIdx,
+								  cv::Mat P_dest
                                   );
 
     double AveragePhaseDifference( std::vector<double> &lineHistogram );
@@ -36,6 +38,8 @@ public:
 	bool Calc3DPoint(double U, double V, double W, double &X, double &Y, double &Z, TCALPAR& param);
 
 	TCALPAR& GetCalParam(int idx);
+
+	void ReadRawCal(const char *filename);
 
 private:
     std::vector<double> histogram;

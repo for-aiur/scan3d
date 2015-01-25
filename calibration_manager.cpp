@@ -102,7 +102,12 @@ void CalibrationManager::WriteRawCal(const char* filename, std::vector<std::vect
 	LoadAbsolutePhase("absL.tiff", absL);
 	LoadAbsolutePhase("absR.tiff", absR);
 
-	for(int i = 0; i < m_detectionResult[0].ring_markers_image[0].size(); i++)
+	int i = 0;
+	boost::property_tree::ptree pt;
+	char bufferHeader[32];
+	char bufferData[256];
+	pt.put("Cam1.NP", m_detectionResult[0].ring_markers_image[0].size());
+	for(; i < m_detectionResult[0].ring_markers_image[0].size(); i++)
 	{
 		double imgX = m_detectionResult[0].ring_markers_image[0][i].x;
 		double imgY = m_detectionResult[0].ring_markers_image[0][i].y;
@@ -110,8 +115,28 @@ void CalibrationManager::WriteRawCal(const char* filename, std::vector<std::vect
 		double wrdY = m_detectionResult[0].ring_markers_world[0][i].y;
 		double wrdZ = m_detectionResult[0].ring_markers_world[0][i].z;
 		double srcW = BLInterpolate(imgX, imgY, absL);
-		int a = 100;
+		
+		sprintf(bufferHeader, "Cam1.Mark_%.3i", i);
+		sprintf(bufferData, "%f %f %f %f %f %f", wrdX, wrdY, wrdZ, imgX, imgY, srcW);
+		pt.put(bufferHeader, bufferData);
 	}
+
+	i = 0;
+	pt.put("Cam2.NP", m_detectionResult[1].ring_markers_image[0].size());
+	for(; i < m_detectionResult[1].ring_markers_image[0].size(); i++)
+	{
+		double imgX = m_detectionResult[1].ring_markers_image[0][i].x;
+		double imgY = m_detectionResult[1].ring_markers_image[0][i].y;
+		double wrdX = m_detectionResult[1].ring_markers_world[0][i].x;
+		double wrdY = m_detectionResult[1].ring_markers_world[0][i].y;
+		double wrdZ = m_detectionResult[1].ring_markers_world[0][i].z;
+		double srcW = BLInterpolate(imgX, imgY, absR);
+		
+		sprintf(bufferHeader, "Cam2.Mark_%.3i", i);
+		sprintf(bufferData, "%f %f %f %f %f %f", wrdX, wrdY, wrdZ, imgX, imgY, srcW);
+		pt.put(bufferHeader, bufferData);
+	}
+	boost::property_tree::write_ini(filename, pt);
 }
 
 bool CalibrationManager::DetectMarkers(cv::Mat& camImg, int idxCam)

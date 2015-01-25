@@ -39,6 +39,7 @@ ScanCalculator::~ScanCalculator()
 
 bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequence, CalibrationResult& c_result)
 {
+	m_stereoView.ReadRawCal("rawcal.ini");
 	int height = sequence[0][0].rows;
 	int width = sequence[0][0].cols;
     cv::Size size = cv::Size(sequence[0][0].cols, sequence[0][0].rows);
@@ -160,7 +161,7 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
             double srcW = BLInterpolate(p[counter].x, p[counter].y, absL);
             counter++;
 
-            if(!m_stereoView.DetectPtOnEplipolarLine(l, srcW, absR, _U, _V, 2))
+            if(!m_stereoView.DetectPtOnEplipolarLine(l, srcW, absR, p[counter-1].x, p[counter-1].y, _U, _V, 2, PP2))
             {
                 continue;
             }

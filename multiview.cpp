@@ -1,5 +1,27 @@
 #include "multiview.h"
 #include <numeric.h>
+#include <cmath>
+
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/tokenizer.hpp>
+
+float angleBetween(double pt1x, double pt1y, double pt2x, double pt2y)
+{
+    float len1 = sqrt(pt1x * pt1x + pt1y * pt1y);
+    float len2 = sqrt(pt2x * pt2x + pt2y * pt2y);
+
+    float dot = pt1x * pt2x + pt1y * pt2y;
+
+    float a = dot / (len1 * len2);
+
+    if (a >= 1.0)
+        return 0.0;
+    else if (a <= -1.0)
+        return M_PI;
+    else
+		return std::acos(a); // 0..PI
+}
 
 MultiView::MultiView()
 {
@@ -12,18 +34,48 @@ MultiView::~MultiView()
 
 }
 
-bool MultiView::DetectPtOnEplipolarLine( const T2DLINED &DstEpipolarLine,
-                              const double W, cv::Mat& DstAbsPhase,
-                              double &U_DstCam,
-                              double &V_DstCam,
-                              const int DstCamIdx
-                              )
+bool MultiView::DetectPtOnEplipolarLine( T2DLINED &DstEpipolarLine,
+										 const double W, cv::Mat& DstAbsPhase,
+										 const double U_src, const double V_src,
+										 double &U_DstCam,
+										 double &V_DstCam,
+										 const int DstCamIdx,
+										 cv::Mat P_dest
+										)
 {
     if( !W )
     {
         return false;
     }
 
+	cv::Mat p3d_approx = cv::Mat::ones(4,1,CV_64FC1);
+	//limit epipolar line search 
+	if(Calc3DPoint(U_src, V_src, W, p3d_approx.at<double>(0), p3d_approx.at<double>(1), p3d_approx.at<double>(2), calParam[0]))
+	{
+		cv::Mat proj_dest = P_dest*p3d_approx;
+		proj_dest = proj_dest / proj_dest.at<double>(2);
+		
+		//project approx image point on the destination epipolar line
+		double alpha = angleBetween(DstEpipolarLine.vr.x, DstEpipolarLine.vr.y, proj_dest.at<double>(0)-DstEpipolarLine.p0.x, proj_dest.at<double>(1)-DstEpipolarLine.p0.y);
+
+		cv::Point2d dest;
+		cv::Point2d projection(0,0);
+		dest.x = DstEpipolarLine.vr.x / cv::norm(DstEpipolarLine.vr);
+		dest.y = DstEpipolarLine.vr.y / cv::norm(DstEpipolarLine.vr);
+
+		double dist = cv::norm(DstEpipolarLine.p0 - cv::Point2d(proj_dest.at<double>(0), proj_dest.at<double>(1)));
+
+		if(alpha!=0)
+		{
+			projection = DstEpipolarLine.p0 + ( std::cos(alpha) * dist) * dest;
+			DstEpipolarLine.p0.x = projection.x - (20.0 * dest.x);
+			DstEpipolarLine.p0.y = projection.y - (20.0 * dest.y);
+
+			DstEpipolarLine.vr.x = (projection.x + (20*dest.x)) - (DstEpipolarLine.p0.x);
+			DstEpipolarLine.vr.y = (projection.y + (20*dest.y)) - (DstEpipolarLine.p0.y);
+		}
+	}
+	
     // Histogram along the line
     if( !GetIntensityByLine_16Bit( DstAbsPhase, DstEpipolarLine.p0, DstEpipolarLine.p0+DstEpipolarLine.vr, histogram, 0.5, pixPosition ) )
     {
@@ -262,4 +314,53 @@ bool MultiView::Calc3DPoint(double U, double V, double W, double &X, double &Y, 
 TCALPAR& MultiView::GetCalParam(int idx)
 {
 	return calParam[idx];
+}
+
+void MultiView::ReadRawCal(const char *filename)
+{
+	std::vector<TCALPOINT> cam1_calp,cam2_calp;
+
+    boost::property_tree::ptree pt;
+    boost::property_tree::ini_parser::read_ini(filename, pt);
+
+    int amount_points = pt.get<int>("Cam1.NP");
+    char buffer[32];
+    typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+    boost::char_separator<char> sep(" ");
+
+    for(int i = 0; i < amount_points; i++)
+    {
+        sprintf(buffer, "Cam1.Mark_%.3i", i);
+        std::string line = pt.get<std::string>(buffer);
+        tokenizer tokens(line, sep);
+		TCALPOINT calib_p;
+        tokenizer::iterator tok_iter = tokens.begin();
+        calib_p.X = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.Y = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.Z = ::atof(std::string(*tok_iter++).c_str());
+		calib_p.U = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.V = ::atof(std::string(*tok_iter++).c_str());
+		calib_p.W = ::atof(std::string(*tok_iter).c_str());
+        cam1_calp.push_back(calib_p);
+    }
+
+	amount_points = pt.get<int>("Cam2.NP");
+	for(int i = 0; i < amount_points; i++)
+    {
+        sprintf(buffer, "Cam2.Mark_%.3i", i);
+        std::string line = pt.get<std::string>(buffer);
+        tokenizer tokens(line, sep);
+		TCALPOINT calib_p;
+        tokenizer::iterator tok_iter = tokens.begin();
+        calib_p.X = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.Y = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.Z = ::atof(std::string(*tok_iter++).c_str());
+		calib_p.U = ::atof(std::string(*tok_iter++).c_str());
+        calib_p.V = ::atof(std::string(*tok_iter++).c_str());
+		calib_p.W = ::atof(std::string(*tok_iter).c_str());
+        cam2_calp.push_back(calib_p);
+    }
+
+	calParam[0].CalcCalibrationParams(cam1_calp);
+	calParam[1].CalcCalibrationParams(cam2_calp);
 }

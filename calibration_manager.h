@@ -3,8 +3,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#define M_PI 3.14159265359
-
 struct CalibrationParameters{
     CalibrationParameters();
 

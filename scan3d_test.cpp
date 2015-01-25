@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <calibration_manager.h>
 #include <calibration_result.h>
 #include <scan_manager.h>
@@ -88,7 +89,27 @@ void main()
 	cm.GetCalibrationResult().SaveIni("calib_result.ini");
 
 	cm.WriteRawCal("rawcal.ini", sequence);
-	int a = 100;
+
+	MultiView mv;
+	mv.ReadRawCal("rawcal.ini");
+	
+	//Mark_000=-376.850525 986.870789 116.566643 302.346497 463.426880 18316.603967
+	//Mark_011=-409.716370 1102.125000 117.673386 301.788971 105.087105 18444.087105
+	//Mark_027=-79.476814 946.636780 114.790840 1018.508728 777.178650 5373.285400
+	double x, y, z;
+	mv.Calc3DPoint( 302.346497, 463.426880, 18316.603967, x, y, z, mv.GetCalParam(0));
+	mv.Calc3DPoint( 301.788971, 105.087105, 18444.087105, x, y, z, mv.GetCalParam(0));
+	mv.Calc3DPoint( 1018.508728, 777.178650, 5373.285400, x, y, z, mv.GetCalParam(0));
+
+	ScanManager sm;
+	sm.StartScan();
+	std::vector<cv::Mat> *cloud = sm.GetCloud();
+
+	std::ofstream file("out.txt");
+	for(int i = 0; i < cloud->size(); i++)
+	{
+		file << (*cloud)[i].at<double>(0) << " " << (*cloud)[i].at<double>(1) << " " << (*cloud)[i].at<double>(2) << "\n";
+	}
 }
 
 
