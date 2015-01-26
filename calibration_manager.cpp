@@ -17,7 +17,7 @@ CalibrationManager::CalibrationManager()
     m_calibParams.resize(2);
     m_detectionResult.resize(2);
 
-    m_calibDescription.ReadFromIni("Calib.ini");
+    m_calibDescription.ReadFromIni("C:/Users/yildirim/Dropbox/Vision/myOCV/images/hosteo1/Calib.ini");
 }
 
 CalibrationManager::~CalibrationManager()
@@ -508,7 +508,7 @@ void CalibrationDescription::ReadFromIni(const char* filename)
 
     amount_id_markers = 0;
     boost::property_tree::ptree pt;
-    boost::property_tree::ini_parser::read_ini("calib.ini", pt);
+    boost::property_tree::ini_parser::read_ini(filename, pt);
 
     int amount_points = pt.get<int>("CalibInfo.MarkCount");
     (*this).amount_points = amount_points;

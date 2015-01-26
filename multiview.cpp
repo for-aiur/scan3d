@@ -25,8 +25,8 @@ float angleBetween(double pt1x, double pt1y, double pt2x, double pt2y)
 
 MultiView::MultiView()
 {
-    histogram.reserve(650);
-    pixPosition.reserve(650);
+    histogram.reserve(100);
+    pixPosition.reserve(100);
 }
 
 MultiView::~MultiView()
@@ -50,6 +50,7 @@ bool MultiView::DetectPtOnEplipolarLine( T2DLINED &DstEpipolarLine,
 
 	cv::Mat p3d_approx = cv::Mat::ones(4,1,CV_64FC1);
 	//limit epipolar line search 
+
 	if(Calc3DPoint(U_src, V_src, W, p3d_approx.at<double>(0), p3d_approx.at<double>(1), p3d_approx.at<double>(2), calParam[0]))
 	{
 		cv::Mat proj_dest = P_dest*p3d_approx;
@@ -219,7 +220,6 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
         increase = intensityByLine_dir*static_cast<float>(intensityByLine_i);
         intensityByLine_pixPos = intensityByLine_p1_local + increase;
 
-        // Bilineare Interpolation
         intensityByLine_u0 = static_cast<long>(intensityByLine_pixPos.x);
         intensityByLine_u1 = intensityByLine_u0 + 1;
         intensityByLine_v0 = static_cast<long>(intensityByLine_pixPos.y);
@@ -227,9 +227,6 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
         intensityByLine_u  = intensityByLine_pixPos.x - intensityByLine_u0;
         intensityByLine_v  = intensityByLine_pixPos.y - intensityByLine_v0;
 
-        // check up whether the image coordinate exceeds the image border
-        // the bilinear interpolation uses the pixels m_IntensityByLine_u,m_IntensityByLine_v and m_IntensityByLine_u+1,m_IntensityByLine_v+1
-        // this could make problems when the calculation reaches the image borders
         if( intensityByLine_u1 >= intensityByLine_nWidth || intensityByLine_v1 >= intensityByLine_nHeight
             || intensityByLine_v0 < 1 || intensityByLine_v0 >= intensityByLine_nHeight+1)
         {
@@ -237,15 +234,13 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
         }
         else
         {
-            intensityByLine_pPixel = (const short*)( Img.row(intensityByLine_v0 - 1).data );
-            intensityByLine_ph0 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
+            intensityByLine_pPixel = (const short*)( Img.ptr<short>(intensityByLine_v0 - 1));
+			intensityByLine_ph0 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
             intensityByLine_ph2 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
 
-            intensityByLine_pPixel = (const short*)( Img.row(intensityByLine_v1 - 1).data );
+            intensityByLine_pPixel = (const short*)( Img.ptr<short>(intensityByLine_v1 - 1) );
             intensityByLine_ph1 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u0] );
             intensityByLine_ph3 = static_cast<double>( intensityByLine_pPixel[intensityByLine_u1] );
-
-            //qDebug() << m_IntensityByLine_ph0 << "-" << m_IntensityByLine_ph2 << "-" << m_IntensityByLine_ph1 << "-" << m_IntensityByLine_ph3;
 
             if( intensityByLine_ph0==0 || intensityByLine_ph1==0 || intensityByLine_ph2==0 || intensityByLine_ph3==0 )
             {
@@ -263,14 +258,9 @@ bool MultiView::GetIntensityByLine_16Bit( const cv::Mat &Img,
                 Histogr[intensityByLine_i] = (intensityByLine_ph0*weight_tl)+(intensityByLine_ph2*weight_tr)+(intensityByLine_ph1*weight_bl)+(intensityByLine_ph3*weight_br);
             }
             PixPosition[intensityByLine_i] = intensityByLine_pixPos;
-            //cv::circle(src[1], intensityByLine_pixPos, 1, cv::Scalar(255, 255, 255), 1);
         }
     }
 
-    //cv::circle(src[1], p1, 3, cv::Scalar(255, 0, 255), 5);
-    //cv::circle(src[1], p2, 3, cv::Scalar(255, 0, 255), 5);
-    //cv::imshow("Test", src[1]);
-    //cv::waitKey();
     return true;
 }
 

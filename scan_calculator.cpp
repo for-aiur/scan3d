@@ -8,6 +8,65 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 
+#include <boost/thread.hpp>
+
+void ScanCalculator::ScanWorker(int threadId, int startRow, int endRow)
+{
+	MultiView stereoView;
+	stereoView.ReadRawCal("rawcal.ini");
+
+	std::vector<cv::Point2f> p;
+	std::vector<cv::Point3f> lines;
+	for(int r = startRow; r < endRow; r++)//for(int r = 1; r < size.height-5; r++)
+	{
+		for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
+		{
+			p.push_back(cv::Point2f(c, r));
+		}
+	}
+	cv::computeCorrespondEpilines(p, 1, F, lines);
+	//std::cout << "size of lines: "<< lines.size() << std::endl;
+
+	cv::Mat cam0pnts(1,1,CV_64FC2);
+	cv::Mat cam1pnts(1,1,CV_64FC2);
+
+	//find correspondence and triangulate
+	T2DLINED l;
+	int counter = 0;
+	for(int r = startRow; r < endRow; r++)
+	{
+		//std::cout << "thread " << threadId << " : " << r << std::endl;
+		for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
+		{
+			cv::Mat pnts3D = cv::Mat(1,1,CV_64FC4);
+
+			l.p0.x = 0;
+			l.p0.y = -(lines[counter].z/lines[counter].y);
+			double m = -(lines[counter].x / lines[counter].y);
+			double angle = atan(m);            
+			l.vr.x = 1250*cos(angle);
+			l.vr.y = 1250*sin(angle);
+
+			double _U=0, _V=0;
+			double srcW = BLInterpolate(p[counter].x, p[counter].y, absL);
+			counter++;
+
+			if(!stereoView.DetectPtOnEplipolarLine(l, srcW, absR, p[counter-1].x, p[counter-1].y, _U, _V, 2, PP2))
+			{
+				continue;
+			}
+
+			cam0pnts.at<cv::Point2d>(0) = p[counter-1];
+			cam1pnts.at<cv::Point2d>(0) = cv::Point2d(_U, _V);
+
+			cv::triangulatePoints(PP1,PP2,cam0pnts,cam1pnts,pnts3D);
+			pnts3D = pnts3D / pnts3D.at<double>(3);
+
+			clouds[threadId].push_back(pnts3D);
+		}
+	}
+}
+
 void LoadAbsolutePhase(const char* filename, cv::Mat& absPhase)
 {
     cv::Mat dummy = cv::imread(filename, CV_16U);
@@ -39,7 +98,6 @@ ScanCalculator::~ScanCalculator()
 
 bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequence, CalibrationResult& c_result)
 {
-	m_stereoView.ReadRawCal("rawcal.ini");
 	int height = sequence[0][0].rows;
 	int width = sequence[0][0].cols;
     cv::Size size = cv::Size(sequence[0][0].cols, sequence[0][0].rows);
@@ -50,23 +108,8 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
     LoadAbsolutePhase("absL.tiff", absL);
     LoadAbsolutePhase("absR.tiff", absR);
 
-    std::cout << "K1" << c_result.K[0] << std::endl;
-    std::cout << "K2" << c_result.K[1] << std::endl;
-    std::cout << "D1" << c_result.D[0] << std::endl;
-    std::cout << "D2" << c_result.D[1] << std::endl;
-    std::cout << "R" << c_result.R << std::endl;
-    std::cout << "T" << c_result.T << std::endl;
-    std::cout << "F" << c_result.F << std::endl;
-    std::cout << "rvecs1" << c_result.rvecs[0][0] << std::endl;
-    std::cout << "rvecs2" << c_result.rvecs[1][0] << std::endl;
-    std::cout << "tvecs1" << c_result.tvecs[0][0] << std::endl;
-    std::cout << "tvecs2" << c_result.tvecs[1][0] << std::endl;
-
     cv::stereoRectify(c_result.K[0], c_result.D[0], c_result.K[1], c_result.D[1], size, c_result.R, c_result.T, R1, R2, P1, P2, Q);
-    std::cout << "R1" << R1 << std::endl;
-    std::cout << "R2" << R2 << std::endl;
-    std::cout << "P1" << P1 << std::endl;
-    std::cout << "P2" << P2 << std::endl;
+	F = c_result.F;
 
     //P = [K*R -(K*R)*C];
     cv::Mat exterior = cv::Mat::zeros(4,4,CV_64F);
@@ -120,66 +163,25 @@ bool ScanCalculator::StartCalculation(std::vector<std::vector<cv::Mat> >& sequen
     PP2 = PP2 / PP2.at<double>(2,3);
     std::cout << "P hesaplanan 2" << PP2 << std::endl;
 
-    std::vector<cv::Point2f> p;
-    std::vector<cv::Point3f> lines;
-    for(int r = 1; r < size.height-5; r++)//for(int r = 1; r < size.height-5; r++)
-    {
-        for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
-        {
-            p.push_back(cv::Point2f(c, r));
-        }
-    }
-    cv::computeCorrespondEpilines(p, 1, c_result.F, lines);
-    std::cout << "size of lines: "<< lines.size() << std::endl;
+	boost::thread_group tg;
+	int thread_amount = 64;
+	clouds.resize(thread_amount);
+	int step = 960 / thread_amount;
+	for(int i = 0; i<thread_amount; i++)
+	{
+		tg.create_thread(boost::bind(&ScanCalculator::ScanWorker, this, i, (i*step)+1, (i+1)*step ));
+	}
 
-    //3d
-    std::vector<cv::Mat> ptCloud;
-    m_ptCloud.swap(ptCloud);
+	int t0 = time(NULL);
+	tg.join_all();
+	int t1 = time(NULL);
+	printf ("time = %d secs\n", t1 - t0);
 
-    cv::Mat cam0pnts(1,1,CV_64FC2);
-    cv::Mat cam1pnts(1,1,CV_64FC2);
-
-    //find correspondence and triangulate
-    T2DLINED l;
-    int counter = 0;
-    for(int r = 1; r < size.height-5; r++)
-    {
-        std::cout << r << std::endl;
-        for(int c = 1; c < 1290; c++)//for(int c = 1; c < size.width-5; c++)
-        {
-            cv::Mat pnts3D = cv::Mat(1,1,CV_64FC4);
-            //boost::chrono::thread_clock::time_point start = boost::chrono::thread_clock::now();
-
-            l.p0.x = 0;//std::max(0,(int)(p[counter].x-150));
-            l.p0.y = -(lines[counter].z/lines[counter].y);
-            double m = -(lines[counter].x / lines[counter].y);
-            double angle = atan(m);            
-            l.vr.x = 1250*cos(angle);
-            l.vr.y = 1250*sin(angle);
-
-            double _U=0, _V=0;
-            double srcW = BLInterpolate(p[counter].x, p[counter].y, absL);
-            counter++;
-
-            if(!m_stereoView.DetectPtOnEplipolarLine(l, srcW, absR, p[counter-1].x, p[counter-1].y, _U, _V, 2, PP2))
-            {
-                continue;
-            }
-
-            cam0pnts.at<cv::Point2d>(0) = p[counter-1];
-            cam1pnts.at<cv::Point2d>(0) = cv::Point2d(_U, _V);
-
-            cv::triangulatePoints(PP1,PP2,cam0pnts,cam1pnts,pnts3D);
-            pnts3D = pnts3D / pnts3D.at<double>(3);
-            m_ptCloud.push_back(pnts3D);
-
-            //std::cout << pnts3D.at<double>(0) << " " << pnts3D.at<double>(1) << " " << pnts3D.at<double>(2) << std::endl;
-            //std::cout << ptCloud[ptCloud.size()-1] << std::endl;
-
-            //boost::chrono::thread_clock::time_point stop = boost::chrono::thread_clock::now();
-            //file << "duration: " << boost::chrono::duration_cast<boost::chrono::milliseconds>(stop - start).count() << " ms\n";
-        }
-    }
+	std::ofstream file("out.txt");
+	for(int i = 0; i < clouds.size(); i++)
+	{
+		m_ptCloud.insert(m_ptCloud.end(), clouds[i].begin(), clouds[i].end());
+	}
 
     return true;
 }
